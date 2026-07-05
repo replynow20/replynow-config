@@ -1,26 +1,26 @@
 :root {
-  --bg-deep: #0a0b10;          /* 软件底层底色，深邃太空黑 */
-  --bg-surface: #12131a;       /* 卡片、面板前景色 */
-  --bg-surface-hover: #1b1d28; /* 卡片悬浮色 */
+  --bg-deep: #f4f5f8;          /* 软件底色：干净清爽的浅灰 */
+  --bg-surface: #ffffff;       /* 面板/输入框前景色：纯白 */
+  --bg-surface-hover: #f1f3f9; /* 卡片悬浮色 */
   
-  --color-primary: #6366f1;    /* 皇家靛蓝 Indigo */
-  --color-secondary: #06b6d4;  /* 极光青 Cyan */
+  --color-primary: #4f46e5;    /* 主色：皇家靛蓝 Indigo */
+  --color-secondary: #0891b2;  /* 极光青 */
   --grad-accent: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
   --grad-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
   --grad-danger: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
 
-  --text-primary: #f3f4f6;     /* 主文字 */
-  --text-secondary: #9ca3af;   /* 辅助文字 */
+  --text-primary: #1e293b;     /* 主文字：深石板灰 */
+  --text-secondary: #64748b;   /* 辅助文字 */
   
-  --border-color: rgba(255, 255, 255, 0.06);
-  --border-focus: rgba(99, 102, 241, 0.4);
-  --shadow-premium: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --border-color: rgba(0, 0, 0, 0.08); /* 浅色边框线 */
+  --border-focus: rgba(79, 70, 229, 0.4);
+  --shadow-premium: 0 8px 24px 0 rgba(0, 0, 0, 0.05);
   --glass-blur: blur(12px);
   
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   color: var(--text-primary);
   background-color: var(--bg-deep);
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
@@ -419,14 +419,14 @@ body {
   width: 100%;
   height: 140px;
   box-sizing: border-box;
-  background-color: rgba(0, 0, 0, 0.25);
+  background-color: #f8fafc;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 12px;
   line-height: 1.5;
-  color: #e2e8f0;
+  color: #0f172a;
   outline: none;
   resize: none;
   transition: all 0.25s ease;
