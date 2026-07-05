@@ -47,6 +47,7 @@ jobs:
 
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
+        id: tauri_build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -56,3 +57,27 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+      - name: Package portable binary (Windows only)
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        run: |
+          EXE_PATH=$(find src-tauri/target/release -maxdepth 1 -name "*.exe" | head -n 1)
+          if [ -n "$EXE_PATH" ]; then
+            echo "Found executable at $EXE_PATH"
+            cp "$EXE_PATH" ./replynow-config.exe
+            7z a ./replynow-config-windows-portable.zip ./replynow-config.exe
+          else
+            echo "Error: Could not find any .exe file in src-tauri/target/release/"
+            exit 1
+          fi
+
+      - name: Upload portable binary (Windows only)
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.tauri_build.outputs.appVersion }}"
+          echo "Uploading portable assets to release tag v$VERSION..."
+          gh release upload "v$VERSION" ./replynow-config.exe ./replynow-config-windows-portable.zip --clobber
