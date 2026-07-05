@@ -82,18 +82,6 @@ function App() {
     }
   }
 
-  async function initCodex() {
-    try {
-      setCodexStatus("checking");
-      await invoke("initialize_codex");
-      await checkStatus();
-      await loadConfig();
-      setToast({ message: "Codex environment initialized successfully!", isError: false });
-    } catch (err: any) {
-      setCodexStatus("missing");
-      setToast({ message: `Initialization failed: ${err}`, isError: true });
-    }
-  }
 
   async function loadConfig() {
     try {
@@ -172,18 +160,19 @@ function App() {
           {codexStatus === "checking" && <span>检测中...</span>}
           {codexStatus === "ready" && <span>● Codex 已就绪</span>}
           {codexStatus === "missing" && (
-            <span>
-              未检测到环境
-              <button onClick={initCodex} className="init-btn">
-                [一键初始化]
-              </button>
-            </span>
+            <span style={{ color: "#f59e0b" }}>● 未检测到 Codex CLI 配置</span>
           )}
         </div>
       </header>
 
       {/* Form */}
       <main className="config-form">
+        {codexStatus === "missing" && (
+          <div className="codex-warning-box">
+            <AlertCircle size={16} />
+            <span>请先安装并初始化 Codex CLI。检测到配置文件后，本工具将自动解锁。</span>
+          </div>
+        )}
         <div className="form-group">
           <label className="form-label">API 地址 (API Base URL)</label>
           <div className="input-container">
@@ -259,6 +248,7 @@ function App() {
               className="btn btn-secondary"
               onClick={handleRestore}
               title="还原上一次保存的配置文件"
+              disabled={codexStatus === "missing"}
             >
               <RefreshCw size={14} />
               恢复上一次配置
@@ -269,6 +259,7 @@ function App() {
             type="button"
             className="btn btn-primary"
             onClick={handleSave}
+            disabled={codexStatus === "missing"}
           >
             <Save size={14} />
             一键保存并应用

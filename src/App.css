@@ -484,3 +484,18 @@ body {
 .config-form::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+
+.codex-warning-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #d97706;
+  font-size: 12px;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
