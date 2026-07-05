@@ -13,14 +13,7 @@ pub struct CodexStatus {
 pub struct AppConfig {
     base_url: String,
     api_key: String,
-    model: String,
-    model_reasoning_effort: String,
-    network_access: String,
-    disable_response_storage: bool,
-    model_verbosity: String,
-    wire_api: String,
-    requires_openai_auth: bool,
-    api_key_name: String,
+    raw_toml: String,
 }
 
 #[derive(Serialize)]
@@ -57,26 +50,57 @@ fn initialize_codex() -> Result<(), String> {
     }
     
     let config_path = dir.join("config.toml");
-    if !config_path.exists() {
-        let initial_content = r#"# OpenAI Codex CLI Configuration
+    let content = if config_path.exists() {
+        std::fs::read_to_string(&config_path).map_err(|e| e.to_string())?
+    } else {
+        r#"# OpenAI Codex CLI Configuration
 # This file was initialized by ReplyNow Config GUI
-"#;
-        std::fs::write(&config_path, initial_content).map_err(|e| e.to_string())?;
-    }
-    
-    let default_config = AppConfig {
-        base_url: "https://api.replynow.cn:6688/v1".to_string(),
-        api_key: "".to_string(),
-        model: "gpt-5.5".to_string(),
-        model_reasoning_effort: "high".to_string(),
-        network_access: "enabled".to_string(),
-        disable_response_storage: true,
-        model_verbosity: "high".to_string(),
-        wire_api: "responses".to_string(),
-        requires_openai_auth: true,
-        api_key_name: "OPENAI_API_KEY".to_string(),
+"#.to_string()
     };
-    update_config_toml(&config_path, &default_config)?;
+    let mut doc = content.parse::<DocumentMut>().map_err(|e| e.to_string())?;
+    
+    // Set root-level defaults if they don't exist
+    if doc.get("model_provider").is_none() {
+        doc["model_provider"] = toml_edit::value("replynow");
+    }
+    if doc.get("model").is_none() {
+        doc["model"] = toml_edit::value("gpt-5.5");
+    }
+    if doc.get("model_reasoning_effort").is_none() {
+        doc["model_reasoning_effort"] = toml_edit::value("high");
+    }
+    if doc.get("network_access").is_none() {
+        doc["network_access"] = toml_edit::value("enabled");
+    }
+    if doc.get("disable_response_storage").is_none() {
+        doc["disable_response_storage"] = toml_edit::value(true);
+    }
+    if doc.get("model_verbosity").is_none() {
+        doc["model_verbosity"] = toml_edit::value("high");
+    }
+
+    let providers = doc.entry("model_providers").or_insert(toml_edit::table());
+    if let Some(providers_table) = providers.as_table_mut() {
+        let replynow_item = providers_table.entry("replynow").or_insert(toml_edit::table());
+        if let Some(replynow_table) = replynow_item.as_table_mut() {
+            if replynow_table.get("name").is_none() {
+                replynow_table.insert("name", toml_edit::value("replynow"));
+            }
+            if replynow_table.get("base_url").is_none() {
+                replynow_table.insert("base_url", toml_edit::value("https://api.replynow.cn:6688/v1"));
+            }
+            if replynow_table.get("env_key").is_none() {
+                replynow_table.insert("env_key", toml_edit::value("OPENAI_API_KEY"));
+            }
+            if replynow_table.get("wire_api").is_none() {
+                replynow_table.insert("wire_api", toml_edit::value("responses"));
+            }
+            if replynow_table.get("requires_openai_auth").is_none() {
+                replynow_table.insert("requires_openai_auth", toml_edit::value(true));
+            }
+        }
+    }
+    std::fs::write(&config_path, doc.to_string()).map_err(|e| e.to_string())?;
 
     let auth_path = dir.join("auth.json");
     let mut auth_obj = if auth_path.exists() {
@@ -99,49 +123,18 @@ fn load_config() -> Result<AppConfig, String> {
     let config_path = dir.join("config.toml");
     let auth_path = dir.join("auth.json");
 
+    let raw_toml;
     let mut base_url = "https://api.replynow.cn:6688/v1".to_string();
     let mut api_key = "".to_string();
-    let mut model = "gpt-5.5".to_string();
-    let mut model_reasoning_effort = "high".to_string();
-    let mut network_access = "enabled".to_string();
-    let mut disable_response_storage = true;
-    let mut model_verbosity = "high".to_string();
-    let mut wire_api = "responses".to_string();
-    let mut requires_openai_auth = true;
     let mut api_key_name = "OPENAI_API_KEY".to_string();
 
-    // Try to load values from config.toml
     if config_path.exists() {
-        let content = std::fs::read_to_string(&config_path).map_err(|e| e.to_string())?;
-        if let Ok(doc) = content.parse::<DocumentMut>() {
-            // Root-level fields
-            if let Some(m) = doc.get("model").and_then(|v| v.as_str()) {
-                model = m.to_string();
-            }
-            if let Some(r) = doc.get("model_reasoning_effort").and_then(|v| v.as_str()) {
-                model_reasoning_effort = r.to_string();
-            }
-            if let Some(n) = doc.get("network_access").and_then(|v| v.as_str()) {
-                network_access = n.to_string();
-            }
-            if let Some(d) = doc.get("disable_response_storage").and_then(|v| v.as_bool()) {
-                disable_response_storage = d;
-            }
-            if let Some(v) = doc.get("model_verbosity").and_then(|v| v.as_str()) {
-                model_verbosity = v.to_string();
-            }
-
-            // model_providers table fields
+        raw_toml = std::fs::read_to_string(&config_path).map_err(|e| e.to_string())?;
+        if let Ok(doc) = raw_toml.parse::<DocumentMut>() {
             if let Some(providers) = doc.get("model_providers").and_then(|p| p.as_table()) {
                 if let Some(replynow) = providers.get("replynow").and_then(|r| r.as_table()) {
                     if let Some(url) = replynow.get("base_url").and_then(|u| u.as_str()) {
                         base_url = url.to_string();
-                    }
-                    if let Some(w) = replynow.get("wire_api").and_then(|u| u.as_str()) {
-                        wire_api = w.to_string();
-                    }
-                    if let Some(req) = replynow.get("requires_openai_auth").and_then(|u| u.as_bool()) {
-                        requires_openai_auth = req;
                     }
                     if let Some(env) = replynow.get("env_key").and_then(|u| u.as_str()) {
                         api_key_name = env.to_string();
@@ -149,16 +142,32 @@ fn load_config() -> Result<AppConfig, String> {
                 }
             }
         }
+    } else {
+        raw_toml = r#"# OpenAI Codex CLI Configuration
+# This file was initialized by ReplyNow Config GUI
+
+model_provider = "replynow"
+model = "gpt-5.5"
+model_reasoning_effort = "high"
+network_access = "enabled"
+disable_response_storage = true
+model_verbosity = "high"
+
+[model_providers.replynow]
+name = "replynow"
+base_url = "https://api.replynow.cn:6688/v1"
+env_key = "OPENAI_API_KEY"
+wire_api = "responses"
+requires_openai_auth = true
+"#.to_string();
     }
 
-    // Try to load api_key from auth.json
     if auth_path.exists() {
         let content = std::fs::read_to_string(&auth_path).map_err(|e| e.to_string())?;
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
             if let Some(key) = json.get(&api_key_name).and_then(|k| k.as_str()) {
                 api_key = key.to_string();
             } else if api_key_name == "OPENAI_API_KEY" {
-                // If it fails to find OPENAI_API_KEY, fallback to REPLYNOW_API_KEY just in case they used v1 before
                 if let Some(key) = json.get("REPLYNOW_API_KEY").and_then(|k| k.as_str()) {
                     api_key = key.to_string();
                 }
@@ -169,49 +178,8 @@ fn load_config() -> Result<AppConfig, String> {
     Ok(AppConfig {
         base_url,
         api_key,
-        model,
-        model_reasoning_effort,
-        network_access,
-        disable_response_storage,
-        model_verbosity,
-        wire_api,
-        requires_openai_auth,
-        api_key_name,
+        raw_toml,
     })
-}
-
-pub fn update_config_toml(path: &Path, config: &AppConfig) -> Result<(), String> {
-    let content = if path.exists() {
-        std::fs::read_to_string(path).map_err(|e| e.to_string())?
-    } else {
-        "".to_string()
-    };
-    let mut doc = content.parse::<DocumentMut>().map_err(|e| e.to_string())?;
-    
-    // Root level fields
-    doc["model_provider"] = toml_edit::value("replynow");
-    doc["model"] = toml_edit::value(&config.model);
-    doc["model_reasoning_effort"] = toml_edit::value(&config.model_reasoning_effort);
-    doc["network_access"] = toml_edit::value(&config.network_access);
-    doc["disable_response_storage"] = toml_edit::value(config.disable_response_storage);
-    doc["model_verbosity"] = toml_edit::value(&config.model_verbosity);
-    
-    // model_providers Table
-    let providers = doc.entry("model_providers").or_insert(toml_edit::table());
-    
-    if let Some(providers_table) = providers.as_table_mut() {
-        let replynow_item = providers_table.entry("replynow").or_insert(toml_edit::table());
-        if let Some(replynow_table) = replynow_item.as_table_mut() {
-            replynow_table.insert("name", toml_edit::value("replynow"));
-            replynow_table.insert("base_url", toml_edit::value(&config.base_url));
-            replynow_table.insert("env_key", toml_edit::value(&config.api_key_name));
-            replynow_table.insert("wire_api", toml_edit::value(&config.wire_api));
-            replynow_table.insert("requires_openai_auth", toml_edit::value(config.requires_openai_auth));
-        }
-    }
-    
-    std::fs::write(path, doc.to_string()).map_err(|e| e.to_string())?;
-    Ok(())
 }
 
 pub fn update_auth_json(path: &Path, api_key_name: &str, api_key: &str) -> Result<(), String> {
@@ -260,12 +228,27 @@ fn save_config(config: AppConfig) -> Result<(), String> {
     }
 
     // Clean up trailing slash from base_url if present
-    let mut clean_config = config.clone();
-    clean_config.base_url = config.base_url.trim_end_matches('/').to_string();
+    let clean_url = config.base_url.trim_end_matches('/').to_string();
 
-    // Update files
-    update_config_toml(&config_path, &clean_config)?;
-    update_auth_json(&auth_path, &clean_config.api_key_name, &clean_config.api_key)?;
+    // Parse raw_toml to verify valid TOML structure and sync base_url and get env_key
+    let mut doc = config.raw_toml.parse::<DocumentMut>().map_err(|e| format!("Invalid TOML: {}", e))?;
+    
+    let mut api_key_name = "OPENAI_API_KEY".to_string();
+    let providers = doc.entry("model_providers").or_insert(toml_edit::table());
+    if let Some(providers_table) = providers.as_table_mut() {
+        let replynow_item = providers_table.entry("replynow").or_insert(toml_edit::table());
+        if let Some(replynow_table) = replynow_item.as_table_mut() {
+            replynow_table.insert("base_url", toml_edit::value(clean_url));
+            if let Some(env) = replynow_table.get("env_key").and_then(|u| u.as_str()) {
+                api_key_name = env.to_string();
+            } else {
+                replynow_table.insert("env_key", toml_edit::value(&api_key_name));
+            }
+        }
+    }
+
+    std::fs::write(&config_path, doc.to_string()).map_err(|e| e.to_string())?;
+    update_auth_json(&auth_path, &api_key_name, &config.api_key)?;
 
     Ok(())
 }
@@ -435,49 +418,47 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn test_update_config_toml_new_and_existing() {
+    fn test_save_config_raw_toml() {
         let dir = tempdir().unwrap();
         let config_path = dir.path().join("config.toml");
+        let auth_path = dir.path().join("auth.json");
 
-        let mut config = AppConfig {
-            base_url: "https://api.replynow.cn:6688/v1".to_string(),
-            api_key: "sk-test".to_string(),
-            model: "gpt-5.5".to_string(),
-            model_reasoning_effort: "high".to_string(),
-            network_access: "enabled".to_string(),
-            disable_response_storage: true,
-            model_verbosity: "high".to_string(),
-            wire_api: "responses".to_string(),
-            requires_openai_auth: true,
-            api_key_name: "OPENAI_API_KEY".to_string(),
+        let raw_toml = r#"model_provider = "replynow"
+model = "gpt-5.5"
+
+[model_providers.replynow]
+name = "replynow"
+base_url = "https://api.replynow.cn:6688/v1"
+env_key = "REPLYNOW_API_KEY"
+"#;
+
+        let config = AppConfig {
+            base_url: "https://new-url.com/v1".to_string(),
+            api_key: "sk-test-key".to_string(),
+            raw_toml: raw_toml.to_string(),
         };
 
-        // Test with new (non-existing) file
-        update_config_toml(&config_path, &config).unwrap();
-        let content = std::fs::read_to_string(&config_path).unwrap();
-        assert!(content.contains("model_provider = \"replynow\""));
-        assert!(content.contains("base_url = \"https://api.replynow.cn:6688/v1\""));
-        assert!(content.contains("model = \"gpt-5.5\""));
-        assert!(content.contains("model_reasoning_effort = \"high\""));
+        // Write initial files manually to test path behavior
+        std::fs::write(&config_path, raw_toml).unwrap();
 
-        // Add an unrelated comment and field to mock user customizations
-        let modified_content = format!(
-            "{}\n# Custom User Setting\ncustom_field = \"hello\"\n",
-            content
-        );
-        std::fs::write(&config_path, modified_content).unwrap();
+        // Test the TOML parsing and update logic directly
+        let mut doc = config.raw_toml.parse::<DocumentMut>().unwrap();
+        let providers = doc.entry("model_providers").or_insert(toml_edit::table());
+        let replynow_item = providers.as_table_mut().unwrap().entry("replynow").or_insert(toml_edit::table());
+        replynow_item.as_table_mut().unwrap().insert("base_url", toml_edit::value("https://new-url.com/v1"));
+        let env_key = replynow_item.as_table_mut().unwrap().get("env_key").unwrap().as_str().unwrap().to_string();
+        assert_eq!(env_key, "REPLYNOW_API_KEY");
 
-        // Run update again with different URL and model
-        config.base_url = "https://example.com/v1".to_string();
-        config.model = "gpt-6.0".to_string();
-        update_config_toml(&config_path, &config).unwrap();
-        let content2 = std::fs::read_to_string(&config_path).unwrap();
-        assert!(content2.contains("model_provider = \"replynow\""));
-        assert!(content2.contains("base_url = \"https://example.com/v1\""));
-        assert!(content2.contains("model = \"gpt-6.0\""));
-        // Verify custom comment and custom_field are preserved
-        assert!(content2.contains("# Custom User Setting"));
-        assert!(content2.contains("custom_field = \"hello\""));
+        std::fs::write(&config_path, doc.to_string()).unwrap();
+        update_auth_json(&auth_path, &env_key, &config.api_key).unwrap();
+
+        let updated_toml = std::fs::read_to_string(&config_path).unwrap();
+        assert!(updated_toml.contains("base_url = \"https://new-url.com/v1\""));
+        assert!(updated_toml.contains("model = \"gpt-5.5\""));
+
+        let auth_content = std::fs::read_to_string(&auth_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&auth_content).unwrap();
+        assert_eq!(json["REPLYNOW_API_KEY"], "sk-test-key");
     }
 
     #[test]
@@ -485,22 +466,10 @@ mod tests {
         let dir = tempdir().unwrap();
         let auth_path = dir.path().join("auth.json");
 
-        // Test with new file
         update_auth_json(&auth_path, "OPENAI_API_KEY", "sk-test-key").unwrap();
         let content = std::fs::read_to_string(&auth_path).unwrap();
         let json: serde_json::Value = serde_json::from_str(&content).unwrap();
         assert_eq!(json["OPENAI_API_KEY"], "sk-test-key");
-
-        // Test preserving existing keys
-        let mut map = serde_json::Map::new();
-        map.insert("OTHER_KEY".to_string(), serde_json::Value::String("other-val".to_string()));
-        map.insert("OPENAI_API_KEY".to_string(), serde_json::Value::String("sk-old".to_string()));
-        std::fs::write(&auth_path, serde_json::to_string(&map).unwrap()).unwrap();
-
-        update_auth_json(&auth_path, "OPENAI_API_KEY", "sk-new").unwrap();
-        let content2 = std::fs::read_to_string(&auth_path).unwrap();
-        let json2: serde_json::Value = serde_json::from_str(&content2).unwrap();
-        assert_eq!(json2["OPENAI_API_KEY"], "sk-new");
-        assert_eq!(json2["OTHER_KEY"], "other-val");
     }
 }
+

@@ -29,14 +29,7 @@ interface TestResult {
 interface AppConfig {
   base_url: string;
   api_key: string;
-  model: string;
-  model_reasoning_effort: string;
-  network_access: string;
-  disable_response_storage: boolean;
-  model_verbosity: string;
-  wire_api: string;
-  requires_openai_auth: boolean;
-  api_key_name: string;
+  raw_toml: string;
 }
 
 function App() {
@@ -45,14 +38,7 @@ function App() {
   const [showApiKey, setShowApiKey] = useState(false);
   
   // Advanced fields state
-  const [model, setModel] = useState("gpt-5.5");
-  const [modelReasoningEffort, setModelReasoningEffort] = useState("high");
-  const [networkAccess, setNetworkAccess] = useState("enabled");
-  const [disableResponseStorage, setDisableResponseStorage] = useState(true);
-  const [modelVerbosity, setModelVerbosity] = useState("high");
-  const [wireApi, setWireApi] = useState("responses");
-  const [requiresOpenaiAuth, setRequiresOpenaiAuth] = useState(true);
-  const [apiKeyName, setApiKeyName] = useState("OPENAI_API_KEY");
+  const [rawToml, setRawToml] = useState("");
 
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   
@@ -114,14 +100,7 @@ function App() {
       const config = await invoke<AppConfig>("load_config");
       if (config.base_url) setBaseUrl(config.base_url);
       if (config.api_key) setApiKey(config.api_key);
-      if (config.model) setModel(config.model);
-      if (config.model_reasoning_effort) setModelReasoningEffort(config.model_reasoning_effort);
-      if (config.network_access) setNetworkAccess(config.network_access);
-      if (config.disable_response_storage !== undefined) setDisableResponseStorage(config.disable_response_storage);
-      if (config.model_verbosity) setModelVerbosity(config.model_verbosity);
-      if (config.wire_api) setWireApi(config.wire_api);
-      if (config.requires_openai_auth !== undefined) setRequiresOpenaiAuth(config.requires_openai_auth);
-      if (config.api_key_name) setApiKeyName(config.api_key_name);
+      if (config.raw_toml !== undefined) setRawToml(config.raw_toml);
     } catch (err) {
       console.error("Failed to load configuration", err);
     }
@@ -129,17 +108,10 @@ function App() {
 
   async function handleSave() {
     try {
-      const config: AppConfig = {
+      const config = {
         base_url: baseUrl,
         api_key: apiKey,
-        model,
-        model_reasoning_effort: modelReasoningEffort,
-        network_access: networkAccess,
-        disable_response_storage: disableResponseStorage,
-        model_verbosity: modelVerbosity,
-        wire_api: wireApi,
-        requires_openai_auth: requiresOpenaiAuth,
-        api_key_name: apiKeyName
+        raw_toml: rawToml
       };
       await invoke("save_config", { config });
       setToast({ message: "Configuration saved and backed up!", isError: false });
@@ -253,94 +225,15 @@ function App() {
 
         {/* Advanced Settings Section */}
         {isAdvancedOpen && (
-          <div className="advanced-panel-grid">
-            <div className="form-group">
-              <label className="form-label font-xs">模型 (Model)</label>
-              <input
-                type="text"
-                className="form-input form-input-sm"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="form-label font-xs">API Key 键名 (Auth Key Name)</label>
-              <input
-                type="text"
-                className="form-input form-input-sm"
-                value={apiKeyName}
-                onChange={(e) => setApiKeyName(e.target.value)}
-                placeholder="OPENAI_API_KEY"
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label font-xs">推理努力程度 (Reasoning Effort)</label>
-              <select
-                className="form-input form-input-sm"
-                value={modelReasoningEffort}
-                onChange={(e) => setModelReasoningEffort(e.target.value)}
-              >
-                <option value="high">high</option>
-                <option value="medium">medium</option>
-                <option value="low">low</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label font-xs">网络访问 (Network Access)</label>
-              <select
-                className="form-input form-input-sm"
-                value={networkAccess}
-                onChange={(e) => setNetworkAccess(e.target.value)}
-              >
-                <option value="enabled">enabled</option>
-                <option value="disabled">disabled</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label font-xs">输出冗余度 (Verbosity)</label>
-              <select
-                className="form-input form-input-sm"
-                value={modelVerbosity}
-                onChange={(e) => setModelVerbosity(e.target.value)}
-              >
-                <option value="high">high</option>
-                <option value="medium">medium</option>
-                <option value="low">low</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label font-xs">网络 API 模式 (Wire API)</label>
-              <input
-                type="text"
-                className="form-input form-input-sm"
-                value={wireApi}
-                onChange={(e) => setWireApi(e.target.value)}
-              />
-            </div>
-
-            <div className="checkbox-group" style={{ gridColumn: "span 2" }}>
-              <label className="checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={disableResponseStorage}
-                  onChange={(e) => setDisableResponseStorage(e.target.checked)}
-                />
-                <span>禁用响应存储 (Disable Response Storage)</span>
-              </label>
-              <label className="checkbox-label" style={{ marginTop: "6px" }}>
-                <input
-                  type="checkbox"
-                  checked={requiresOpenaiAuth}
-                  onChange={(e) => setRequiresOpenaiAuth(e.target.checked)}
-                />
-                <span>要求 OpenAI 格式认证 (Requires OpenAI Auth)</span>
-              </label>
-            </div>
+          <div className="advanced-textarea-container">
+            <label className="form-label font-xs">高级参数编辑器 (config.toml)</label>
+            <textarea
+              className="advanced-textarea"
+              value={rawToml}
+              onChange={(e) => setRawToml(e.target.value)}
+              placeholder="# 写入或编辑 config.toml 参数..."
+              spellCheck={false}
+            />
           </div>
         )}
 
