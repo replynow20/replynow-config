@@ -79,9 +79,16 @@ fn initialize_codex() -> Result<(), String> {
     update_config_toml(&config_path, &default_config)?;
 
     let auth_path = dir.join("auth.json");
-    if !auth_path.exists() {
-        std::fs::write(&auth_path, "{}").map_err(|e| e.to_string())?;
-    }
+    let mut auth_obj = if auth_path.exists() {
+        let content = std::fs::read_to_string(&auth_path).map_err(|e| e.to_string())?;
+        serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&content)
+            .unwrap_or_else(|_| serde_json::Map::new())
+    } else {
+        serde_json::Map::new()
+    };
+    auth_obj.entry("OPENAI_API_KEY".to_string()).or_insert(serde_json::Value::String("".to_string()));
+    let content = serde_json::to_string_pretty(&auth_obj).map_err(|e| e.to_string())?;
+    std::fs::write(&auth_path, content).map_err(|e| e.to_string())?;
 
     Ok(())
 }
