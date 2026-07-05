@@ -58,24 +58,25 @@ fn initialize_codex() -> Result<(), String> {
     
     let config_path = dir.join("config.toml");
     if !config_path.exists() {
-        let default_config = r#"# OpenAI Codex CLI Configuration
+        let initial_content = r#"# OpenAI Codex CLI Configuration
 # This file was initialized by ReplyNow Config GUI
-
-model_provider = "replynow"
-model = "gpt-5.5"
-model_reasoning_effort = "high"
-network_access = "enabled"
-disable_response_storage = true
-model_verbosity = "high"
-
-[model_providers.replynow]
-name = "replynow"
-base_url = "https://api.replynow.cn:6688/v1"
-wire_api = "responses"
-requires_openai_auth = true
 "#;
-        std::fs::write(&config_path, default_config).map_err(|e| e.to_string())?;
+        std::fs::write(&config_path, initial_content).map_err(|e| e.to_string())?;
     }
+    
+    let default_config = AppConfig {
+        base_url: "https://api.replynow.cn:6688/v1".to_string(),
+        api_key: "".to_string(),
+        model: "gpt-5.5".to_string(),
+        model_reasoning_effort: "high".to_string(),
+        network_access: "enabled".to_string(),
+        disable_response_storage: true,
+        model_verbosity: "high".to_string(),
+        wire_api: "responses".to_string(),
+        requires_openai_auth: true,
+        api_key_name: "OPENAI_API_KEY".to_string(),
+    };
+    update_config_toml(&config_path, &default_config)?;
 
     let auth_path = dir.join("auth.json");
     if !auth_path.exists() {
