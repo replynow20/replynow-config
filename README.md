@@ -84,3 +84,30 @@
 
 项目已集成 GitHub 工作流 [.github/workflows/release.yml](.github/workflows/release.yml)。
 只要您将代码提交并推送到 `main` 分支，GitHub 会自动启动多平台构建节点，在线打包出 Windows 绿色版 `.exe` 与安装包 `.msi`、以及 macOS `.dmg`，并自动发布在仓库的 Releases 页面中。
+
+---
+
+## 🍏 macOS 安装与运行指引 (macOS Support)
+
+由于 macOS 系统非常严格的安全限制（Gatekeeper 机制），未向 Apple 付费（$99/年）进行官方认证签名的应用，在从浏览器下载并双击打开时，系统会弹出类似下面的报错提示：
+> ❌ **“replynow-config.app”已损坏，打不开。您应该将它移到废纸篓。**
+> ❌ **“replynow-config.app”因为无法确认开发者的身份而无法打开。**
+
+这并非程序或安装包文件损坏，而是 macOS 的默认隔离防范保护（Quarantine）。您可以通过以下两种方式轻松解决：
+
+### 方法一：终端单行命令解除隔离 (推荐，秒级修复)
+
+1. 打开 Mac 上的 **终端 (Terminal)** 应用程序（可通过 Spotlight 搜索 `Terminal`）。
+2. 拷贝并运行以下命令（若您已将应用拖入“应用程序”文件夹中）：
+   ```bash
+   sudo xattr -rd com.apple.quarantine /Applications/replynow-config.app
+   ```
+3. 按下回车，根据系统提示输入您 Mac 的开机密码（输入时屏幕不显示密码，直接输入并回车即可）。
+4. 重新双击打开应用，即可正常运行！
+
+### 方法二：在“系统设置”中信任
+
+1. 在 Finder 中，找到该应用（或拖入“应用程序”文件夹后选中它）。
+2. 按住 **Control 键并点击 (或右键点击)** 应用图标，在弹出的右键菜单中选择 **“打开 (Open)”**。
+3. 系统仍会弹窗警告，但在警告弹窗中会出现一个 **“打开 (Open)”** 按钮，点击即可运行并对该应用添加信任。
+4. 此外，您也可以在 **系统设置 -> 隐私与安全 -> 安全** 页面下，找到提示并点击 **“仍要打开 (Open Anyway)”** 进行授权。
