@@ -3,6 +3,10 @@
     "windows": [
       {
         "label": "main",
+        "title": "ReplyNow 配置助手",
+        "width": 600,
+        "height": 450,
+        "resizable": false,
         "decorations": false
       }
     ]
