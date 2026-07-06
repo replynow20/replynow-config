@@ -33,15 +33,70 @@ body {
   background-color: var(--bg-deep);
 }
 
-.app-container {
-  box-sizing: border-box;
+.app-wrapper {
   width: 600px;
   height: 450px;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-deep);
+  overflow: hidden;
+}
+
+.app-container {
+  box-sizing: border-box;
+  width: 100%;
+  flex-grow: 1;
   padding: 16px 24px;
   display: flex;
   flex-direction: column;
   background-color: var(--bg-deep);
   position: relative;
+  overflow: hidden;
+}
+
+/* Custom Titlebar for Windows */
+.custom-titlebar {
+  height: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: transparent;
+  user-select: none;
+  z-index: 9999;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.titlebar-drag {
+  flex-grow: 1;
+  height: 100%;
+}
+
+.titlebar-controls {
+  display: flex;
+  height: 100%;
+}
+
+.titlebar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+  padding: 0;
+}
+
+.titlebar-btn:hover {
+  background-color: var(--bg-surface-hover);
+}
+
+.titlebar-btn-close:hover {
+  background-color: #e81123 !important;
+  color: #ffffff !important;
 }
 
 /* Header & Status */

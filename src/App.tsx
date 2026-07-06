@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   Eye,
   EyeOff,
@@ -10,7 +11,9 @@ import {
   RefreshCw,
   Play,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Minus,
+  X
 } from "lucide-react";
 import "./App.css";
 
@@ -36,6 +39,7 @@ function App() {
   const [baseUrl, setBaseUrl] = useState("https://api.replynow.cn:6688/v1");
   const [apiKey, setApiKey] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
+  const [isWindows, setIsWindows] = useState(false);
   
   // Advanced fields state
   const [rawToml, setRawToml] = useState("");
@@ -58,6 +62,12 @@ function App() {
   useEffect(() => {
     checkStatus();
     loadConfig();
+
+    // Detect OS
+    const userAgent = navigator.userAgent.toLowerCase();
+    if (userAgent.includes("win")) {
+      setIsWindows(true);
+    }
   }, []);
 
   // Auto-hide toast after 3 seconds
@@ -147,13 +157,36 @@ function App() {
   }
 
   return (
-    <div className="app-container">
-      {/* Header */}
-      <header className="header">
-        <div className="brand">
-          <img src="/logo.svg" className="brand-logo" alt="Logo" />
-          <span className="brand-title">ReplyNow 配置助手</span>
+    <div className="app-wrapper">
+      {isWindows && (
+        <div className="custom-titlebar" data-tauri-drag-region>
+          <div className="titlebar-drag" data-tauri-drag-region />
+          <div className="titlebar-controls">
+            <button
+              onClick={() => getCurrentWindow().minimize()}
+              className="titlebar-btn"
+              title="最小化"
+            >
+              <Minus size={14} />
+            </button>
+            <button
+              onClick={() => getCurrentWindow().close()}
+              className="titlebar-btn titlebar-btn-close"
+              title="关闭"
+            >
+              <X size={14} />
+            </button>
+          </div>
         </div>
+      )}
+
+      <div className="app-container">
+        {/* Header */}
+        <header className="header" data-tauri-drag-region>
+          <div className="brand" data-tauri-drag-region>
+            <img src="/logo.svg" className="brand-logo" alt="Logo" />
+            <span className="brand-title">ReplyNow 配置助手</span>
+          </div>
         
         <div className="status-badge">
           <div className={`status-dot ${codexStatus === "ready" ? "ready" : "missing"} ${testStatus === "success" ? "pulse-success-dot" : ""}`} />
@@ -308,6 +341,7 @@ function App() {
           <span>{toast.message}</span>
         </div>
       )}
+    </div>
     </div>
   );
 }
