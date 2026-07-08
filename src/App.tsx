@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Eye,
   EyeOff,
@@ -40,6 +41,7 @@ function App() {
   const [apiKey, setApiKey] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [isWindows, setIsWindows] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
   
   // Advanced fields state
   const [rawToml, setRawToml] = useState("");
@@ -114,6 +116,7 @@ function App() {
       await invoke("save_config", { config });
       setToast({ message: "Configuration saved and backed up!", isError: false });
       await checkStatus();
+      await loadConfig();
     } catch (err: any) {
       setToast({ message: `Failed to save: ${err}`, isError: true });
     }
@@ -188,12 +191,16 @@ function App() {
             <span className="brand-title">ReplyNow 配置助手</span>
           </div>
         
-        <div className="status-badge">
+        <div 
+          className={`status-badge ${codexStatus === "missing" ? "status-badge-clickable" : ""}`}
+          onClick={() => { if (codexStatus === "missing") setShowGuideModal(true); }}
+          title={codexStatus === "missing" ? "点击查看安装及登录指引" : undefined}
+        >
           <div className={`status-dot ${codexStatus === "ready" ? "ready" : "missing"} ${testStatus === "success" ? "pulse-success-dot" : ""}`} />
           {codexStatus === "checking" && <span>检测中...</span>}
           {codexStatus === "ready" && <span>● Codex 已就绪</span>}
           {codexStatus === "missing" && (
-            <span style={{ color: "#f59e0b" }}>● 未检测到 Codex CLI 配置</span>
+            <span style={{ color: "#f59e0b" }}>● 未检测到 Codex 配置 (点击修复)</span>
           )}
         </div>
       </header>
@@ -201,9 +208,9 @@ function App() {
       {/* Form */}
       <main className="config-form">
         {codexStatus === "missing" && (
-          <div className="codex-warning-box">
+          <div className="codex-warning-box codex-warning-box-clickable" onClick={() => setShowGuideModal(true)}>
             <AlertCircle size={16} />
-            <span>请先安装并初始化 Codex CLI。检测到配置文件后，本工具将自动解锁。</span>
+            <span>未检测到 Codex 配置。点击查看 Codex 安装及登录指引解锁软件。</span>
           </div>
         )}
         <div className="form-group">
@@ -333,6 +340,105 @@ function App() {
           )}
         </section>
       </main>
+
+      {/* Codex Installation & Login Guide Modal */}
+      {showGuideModal && (
+        <div className="modal-backdrop">
+          <div className="modal-content fade-in">
+            <div className="modal-header">
+              <h3 className="modal-title">Codex 安装与登录指引</h3>
+              <button className="modal-close-btn" onClick={() => setShowGuideModal(false)}>
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="steps-container">
+              <div className="step-item">
+                <div className="step-badge">1</div>
+                <div className="step-details">
+                  <div className="step-title">下载并安装 Codex</div>
+                  <div className="step-desc">
+                    请前往官方网站下载并安装 <strong>Codex 桌面客户端</strong>：
+                    <a 
+                      href="#" 
+                      className="modal-link" 
+                      onClick={(e) => { 
+                        e.preventDefault(); 
+                        openUrl("https://chatgpt.com/codex").catch(console.error); 
+                      }}
+                    >
+                      点击打开下载页面
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <div className="step-item">
+                <div className="step-badge">2</div>
+                <div className="step-details">
+                  <div className="step-title">登录 GPT 账户</div>
+                  <div className="step-desc">
+                    启动 Codex 客户端，并登录您的 GPT 账户。登录成功后，系统会自动在本地创建认证文件 <code>auth.json</code> 和配置文件 <code>config.toml</code>。
+                  </div>
+                </div>
+              </div>
+
+              <div className="step-item">
+                <div className="step-badge">3</div>
+                <div className="step-details">
+                  <div className="step-title">完成验证并解锁</div>
+                  <div className="step-desc">
+                    完成上述两步后，点击下方“重新检测配置”按钮验证环境并解锁软件。
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={async () => {
+                  try {
+                    await invoke("initialize_codex");
+                    setToast({ message: "占位配置文件已成功创建！", isError: false });
+                    await checkStatus();
+                    await loadConfig();
+                    setShowGuideModal(false);
+                  } catch (err: any) {
+                    setToast({ message: `初始化失败: ${err}`, isError: true });
+                  }
+                }}
+                title="为您直接生成基础占位配置文件（绕过客户端）"
+              >
+                极速初始化
+              </button>
+              
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={async () => {
+                  try {
+                    const status = await invoke<CodexStatus>("check_codex_status");
+                    if (status.exists && status.config_exists && status.auth_exists) {
+                      setToast({ message: "检测成功，环境已就绪！", isError: false });
+                      await checkStatus();
+                      await loadConfig();
+                      setShowGuideModal(false);
+                    } else {
+                      setToast({ message: "仍然未检测到配置文件，请确认您已完成登录并生成配置文件。", isError: true });
+                    }
+                  } catch (err: any) {
+                    setToast({ message: `检测出错: ${err}`, isError: true });
+                  }
+                }}
+              >
+                重新检测配置
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast Notification */}
       {toast && (

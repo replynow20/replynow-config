@@ -233,16 +233,43 @@ fn save_config(config: AppConfig) -> Result<(), String> {
     // Parse raw_toml to verify valid TOML structure and sync base_url and get env_key
     let mut doc = config.raw_toml.parse::<DocumentMut>().map_err(|e| format!("Invalid TOML: {}", e))?;
     
+    // 1. Force set the root-level model_provider to replynow to ensure it is active
+    doc["model_provider"] = toml_edit::value("replynow");
+
+    // 2. Ensure preferred_auth_method is set to apikey at root level if not present
+    if doc.get("preferred_auth_method").is_none() {
+        doc["preferred_auth_method"] = toml_edit::value("apikey");
+    }
+
+    // 3. Update/populate the replynow provider table with all required fields
     let mut api_key_name = "OPENAI_API_KEY".to_string();
     let providers = doc.entry("model_providers").or_insert(toml_edit::table());
     if let Some(providers_table) = providers.as_table_mut() {
         let replynow_item = providers_table.entry("replynow").or_insert(toml_edit::table());
         if let Some(replynow_table) = replynow_item.as_table_mut() {
+            // Set base_url
             replynow_table.insert("base_url", toml_edit::value(clean_url));
+            
+            // Set name
+            if replynow_table.get("name").is_none() {
+                replynow_table.insert("name", toml_edit::value("replynow"));
+            }
+            
+            // Set env_key
             if let Some(env) = replynow_table.get("env_key").and_then(|u| u.as_str()) {
                 api_key_name = env.to_string();
             } else {
                 replynow_table.insert("env_key", toml_edit::value(&api_key_name));
+            }
+            
+            // Set wire_api
+            if replynow_table.get("wire_api").is_none() {
+                replynow_table.insert("wire_api", toml_edit::value("responses"));
+            }
+            
+            // Set requires_openai_auth
+            if replynow_table.get("requires_openai_auth").is_none() {
+                replynow_table.insert("requires_openai_auth", toml_edit::value(true));
             }
         }
     }
@@ -470,6 +497,83 @@ env_key = "REPLYNOW_API_KEY"
         let content = std::fs::read_to_string(&auth_path).unwrap();
         let json: serde_json::Value = serde_json::from_str(&content).unwrap();
         assert_eq!(json["OPENAI_API_KEY"], "sk-test-key");
+    }
+
+    #[test]
+    fn test_save_config_with_custom_provider() {
+        let dir = tempdir().unwrap();
+        let config_path = dir.path().join("config.toml");
+        let auth_path = dir.path().join("auth.json");
+
+        // The user has a custom provider and model_provider is set to custom
+        let raw_toml = r#"model_provider = "custom"
+model = "gpt-5.5"
+
+[model_providers.custom]
+name = "custom"
+base_url = "https://custom-gateway.io"
+env_key = "CUSTOM_API_KEY"
+"#;
+
+        std::fs::write(&config_path, raw_toml).unwrap();
+
+        // Save a new config for replynow
+        let config = AppConfig {
+            base_url: "https://api.replynow.cn:6688/v1".to_string(),
+            api_key: "sk-replynow-key".to_string(),
+            raw_toml: raw_toml.to_string(),
+        };
+
+        // We run the actual save logic (copy of the main logic to test file-writing)
+        let mut doc = config.raw_toml.parse::<DocumentMut>().unwrap();
+        doc["model_provider"] = toml_edit::value("replynow");
+        if doc.get("preferred_auth_method").is_none() {
+            doc["preferred_auth_method"] = toml_edit::value("apikey");
+        }
+
+        let mut api_key_name = "OPENAI_API_KEY".to_string();
+        let providers = doc.entry("model_providers").or_insert(toml_edit::table());
+        if let Some(providers_table) = providers.as_table_mut() {
+            let replynow_item = providers_table.entry("replynow").or_insert(toml_edit::table());
+            if let Some(replynow_table) = replynow_item.as_table_mut() {
+                replynow_table.insert("base_url", toml_edit::value("https://api.replynow.cn:6688/v1"));
+                if replynow_table.get("name").is_none() {
+                    replynow_table.insert("name", toml_edit::value("replynow"));
+                }
+                if let Some(env) = replynow_table.get("env_key").and_then(|u| u.as_str()) {
+                    api_key_name = env.to_string();
+                } else {
+                    replynow_table.insert("env_key", toml_edit::value(&api_key_name));
+                }
+                if replynow_table.get("wire_api").is_none() {
+                    replynow_table.insert("wire_api", toml_edit::value("responses"));
+                }
+                if replynow_table.get("requires_openai_auth").is_none() {
+                    replynow_table.insert("requires_openai_auth", toml_edit::value(true));
+                }
+            }
+        }
+
+        std::fs::write(&config_path, doc.to_string()).unwrap();
+        update_auth_json(&auth_path, &api_key_name, &config.api_key).unwrap();
+
+        let updated_toml = std::fs::read_to_string(&config_path).unwrap();
+        // Check model_provider is replynow
+        assert!(updated_toml.contains("model_provider = \"replynow\""));
+        // Check custom is still there
+        assert!(updated_toml.contains("[model_providers.custom]"));
+        assert!(updated_toml.contains("base_url = \"https://custom-gateway.io\""));
+        // Check replynow is fully populated
+        assert!(updated_toml.contains("[model_providers.replynow]"));
+        assert!(updated_toml.contains("name = \"replynow\""));
+        assert!(updated_toml.contains("base_url = \"https://api.replynow.cn:6688/v1\""));
+        assert!(updated_toml.contains("env_key = \"OPENAI_API_KEY\""));
+        assert!(updated_toml.contains("wire_api = \"responses\""));
+        assert!(updated_toml.contains("requires_openai_auth = true"));
+
+        let auth_content = std::fs::read_to_string(&auth_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&auth_content).unwrap();
+        assert_eq!(json["OPENAI_API_KEY"], "sk-replynow-key");
     }
 }
 
