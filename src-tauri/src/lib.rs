@@ -89,9 +89,6 @@ fn initialize_codex() -> Result<(), String> {
             if replynow_table.get("base_url").is_none() {
                 replynow_table.insert("base_url", toml_edit::value("https://api.replynow.cn:6688/v1"));
             }
-            if replynow_table.get("env_key").is_none() {
-                replynow_table.insert("env_key", toml_edit::value("OPENAI_API_KEY"));
-            }
             if replynow_table.get("wire_api").is_none() {
                 replynow_table.insert("wire_api", toml_edit::value("responses"));
             }
@@ -258,8 +255,6 @@ fn save_config(config: AppConfig) -> Result<(), String> {
             // Set env_key
             if let Some(env) = replynow_table.get("env_key").and_then(|u| u.as_str()) {
                 api_key_name = env.to_string();
-            } else {
-                replynow_table.insert("env_key", toml_edit::value(&api_key_name));
             }
             
             // Set wire_api
@@ -542,8 +537,6 @@ env_key = "CUSTOM_API_KEY"
                 }
                 if let Some(env) = replynow_table.get("env_key").and_then(|u| u.as_str()) {
                     api_key_name = env.to_string();
-                } else {
-                    replynow_table.insert("env_key", toml_edit::value(&api_key_name));
                 }
                 if replynow_table.get("wire_api").is_none() {
                     replynow_table.insert("wire_api", toml_edit::value("responses"));
@@ -567,7 +560,7 @@ env_key = "CUSTOM_API_KEY"
         assert!(updated_toml.contains("[model_providers.replynow]"));
         assert!(updated_toml.contains("name = \"replynow\""));
         assert!(updated_toml.contains("base_url = \"https://api.replynow.cn:6688/v1\""));
-        assert!(updated_toml.contains("env_key = \"OPENAI_API_KEY\""));
+        assert!(!updated_toml.contains("env_key = \"OPENAI_API_KEY\""));
         assert!(updated_toml.contains("wire_api = \"responses\""));
         assert!(updated_toml.contains("requires_openai_auth = true"));
 

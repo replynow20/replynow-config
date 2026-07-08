@@ -11,8 +11,6 @@ import {
   Save,
   RefreshCw,
   Play,
-  ChevronDown,
-  ChevronUp,
   Minus,
   X
 } from "lucide-react";
@@ -46,7 +44,8 @@ function App() {
   // Advanced fields state
   const [rawToml, setRawToml] = useState("");
 
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [showAdvancedModal, setShowAdvancedModal] = useState(false);
+  const [tempToml, setTempToml] = useState("");
   
   // Codex status: 'checking' | 'ready' | 'missing'
   const [codexStatus, setCodexStatus] = useState<"checking" | "ready" | "missing">("checking");
@@ -198,21 +197,15 @@ function App() {
         >
           <div className={`status-dot ${codexStatus === "ready" ? "ready" : "missing"} ${testStatus === "success" ? "pulse-success-dot" : ""}`} />
           {codexStatus === "checking" && <span>检测中...</span>}
-          {codexStatus === "ready" && <span>● Codex 已就绪</span>}
+          {codexStatus === "ready" && <span>Codex 已就绪</span>}
           {codexStatus === "missing" && (
-            <span style={{ color: "#f59e0b" }}>● 未检测到 Codex 配置 (点击修复)</span>
+            <span style={{ color: "#f59e0b" }}>未检测到 Codex 配置 (点击修复)</span>
           )}
         </div>
       </header>
 
       {/* Form */}
       <main className="config-form">
-        {codexStatus === "missing" && (
-          <div className="codex-warning-box codex-warning-box-clickable" onClick={() => setShowGuideModal(true)}>
-            <AlertCircle size={16} />
-            <span>未检测到 Codex 配置。点击查看 Codex 安装及登录指引解锁软件。</span>
-          </div>
-        )}
         <div className="form-group">
           <label className="form-label">API 地址 (API Base URL)</label>
           <div className="input-container">
@@ -246,25 +239,19 @@ function App() {
           </div>
         </div>
 
-        {/* Advanced Settings Toggle */}
-        <div className="advanced-toggle" onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}>
-          <span className="advanced-toggle-text">高级参数设置 (Advanced Settings)</span>
-          {isAdvancedOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        {/* Advanced Settings Trigger */}
+        <div className="advanced-btn-container">
+          <button
+            type="button"
+            className="advanced-btn"
+            onClick={() => {
+              setTempToml(rawToml);
+              setShowAdvancedModal(true);
+            }}
+          >
+            高级参数设置 (Advanced Settings)
+          </button>
         </div>
-
-        {/* Advanced Settings Section */}
-        {isAdvancedOpen && (
-          <div className="advanced-textarea-container">
-            <label className="form-label font-xs">高级参数编辑器 (config.toml)</label>
-            <textarea
-              className="advanced-textarea"
-              value={rawToml}
-              onChange={(e) => setRawToml(e.target.value)}
-              placeholder="# 写入或编辑 config.toml 参数..."
-              spellCheck={false}
-            />
-          </div>
-        )}
 
         {/* Actions */}
         <div className="actions-panel">
@@ -435,6 +422,77 @@ function App() {
               >
                 重新检测配置
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Advanced Settings Modal */}
+      {showAdvancedModal && (
+        <div className="modal-backdrop">
+          <div className="modal-content modal-content-lg fade-in">
+            <div className="modal-header">
+              <h3 className="modal-title">高级参数配置 (config.toml)</h3>
+              <button className="modal-close-btn" onClick={() => setShowAdvancedModal(false)}>
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="modal-body-editor">
+              <label className="form-label font-xs">TOML 格式配置文件编辑器</label>
+              <textarea
+                className="advanced-textarea-modal"
+                value={tempToml}
+                onChange={(e) => setTempToml(e.target.value)}
+                placeholder="# 写入或编辑 config.toml 参数..."
+                spellCheck={false}
+              />
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={async () => {
+                  try {
+                    await invoke("restore_last_backup");
+                    const config = await invoke<AppConfig>("load_config");
+                    if (config.raw_toml !== undefined) {
+                      setRawToml(config.raw_toml);
+                      setTempToml(config.raw_toml);
+                    }
+                    setToast({ message: "配置已恢复到上一次备份！", isError: false });
+                  } catch (err: any) {
+                    setToast({ message: `恢复备份失败: ${err}`, isError: true });
+                  }
+                }}
+                title="将当前配置文件恢复至最近一次备份"
+                disabled={codexStatus === "missing"}
+              >
+                <RefreshCw size={12} />
+                恢复备份
+              </button>
+
+              <div className="modal-actions-right">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setShowAdvancedModal(false)}
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => {
+                    setRawToml(tempToml);
+                    setShowAdvancedModal(false);
+                    setToast({ message: "高级参数已暂存，请在主页面点击“一键保存并应用”写入文件！", isError: false });
+                  }}
+                >
+                  确认暂存
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -46,6 +46,17 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
+      - name: Get changelog
+        id: get_changelog
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Extracting changelog for version $VERSION..."
+          CHANGELOG_TEXT=$(awk -v ver="$VERSION" '/^## / { if (p) { exit } if ($0 ~ "\\[" ver "\\]" || $0 ~ ver) { p = 1; next } } p { print }' CHANGELOG.md)
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$CHANGELOG_TEXT" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
         id: tauri_build
@@ -54,21 +65,7 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: 'ReplyNow Config GUI v__VERSION__'
-          releaseBody: |
-            ### ✨ 核心特性与修复 (Changelog)
-            
-            #### 1. 🚀 引导初始化环境优化
-            * 弃用静默初始化，在未检测到 Codex 配置时提供**可点击状态栏和警告 Banner**。
-            * 弹出全新的 **Step-by-Step 引导弹窗**，指引用户下载安装 **Codex 桌面客户端**并登录。
-            * 整合 `@tauri-apps/plugin-opener` 插件，安全地在用户的默认系统浏览器中打开下载网页。
-            * 提供“极速初始化”选项，支持绕过客户端直接在本地创建默认占位配置。
-            
-            #### 2. ⚙️ 配置文件合并与切换逻辑修复
-            * 修复了 Rust 后端在保存时无法强制将根节点 `model_provider` 切换为 `"replynow"` 的问题。
-            * 确保 `[model_providers.replynow]` 作为一个独立的 provider 节点能独立完整补全所有关键项（`name`、`base_url`、`env_key`、`wire_api`、`requires_openai_auth`），不会因其他子表（如 `custom`）的存在而发生写出字段缺失。
-            
-            #### 3. 🎨 “零滚动条”界面优化
-            * 深度优化了客户端窗口的全局间距、内边距与反馈面板高度限制，确保基本视图下所有组件在一页中完全呈现，不触发任何纵向滚动条。
+          releaseBody: ${{ steps.get_changelog.outputs.body }}
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
